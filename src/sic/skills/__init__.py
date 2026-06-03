@@ -6,6 +6,16 @@ Public surface:
     SkillLoadError
 """
 
+from sic.skills.installer import (
+    ClaudeTarget,
+    CopilotTarget,
+    GenericTarget,
+    InstallReport,
+    SkillTarget,
+    build_target,
+    install,
+    install_all,
+)
 from sic.skills.loader import (
     SkillLoadError,
     discover_skills,
@@ -26,6 +36,10 @@ from sic.skills.schema import SKILL_NAME_RE, Skill, SkillManifest
 
 __all__ = [
     "SKILL_NAME_RE",
+    "ClaudeTarget",
+    "CopilotTarget",
+    "GenericTarget",
+    "InstallReport",
     "InstalledSkill",
     "Skill",
     "SkillConflict",
@@ -35,8 +49,12 @@ __all__ = [
     "SkillOverride",
     "SkillScope",
     "SkillSet",
+    "SkillTarget",
+    "build_target",
     "discover_skills",
     "dump_frontmatter",
+    "install",
+    "install_all",
     "load_skill",
     "parse_frontmatter",
     "resolve_skills",
