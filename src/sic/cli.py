@@ -18,6 +18,7 @@ from . import __version__
 from .loader import ProfileLoadError, dump_profile_str, load_profile
 from .merger import ConflictReason, merge_profiles
 from .renderer import RenderContext, render_claude_md, resolve_target_path, write_claude_md
+from .skills.cli import app as skills_app
 from .workspace import (
     Config,
     GitError,
@@ -34,6 +35,7 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
+app.add_typer(skills_app, name="skills")
 
 console = Console()
 err_console = Console(stderr=True)
@@ -125,9 +127,15 @@ def sync(
     ),
     project_root: Path = typer.Option(Path.cwd(), "--project-root"),
     no_timestamp: bool = typer.Option(False, "--no-timestamp"),
+    skills: bool = typer.Option(
+        True, "--skills/--no-skills", help="Also install skills to configured targets."
+    ),
 ) -> None:
     """Pull team profile updates and re-merge (optionally re-render CLAUDE.md)."""
     from datetime import datetime, timezone
+
+    from .skills import discover_skills, install_all, resolve_skills
+    from .skills.installer import build_target
 
     ws = Workspace.current()
     if not ws.config_file.exists():
@@ -169,7 +177,27 @@ def sync(
         write_claude_md(text, path)
         console.print(f"[green]rendered[/green] {path}")
 
-    if result.conflicts:
+    skill_conflicts = 0
+    if skills and cfg.skill_targets:
+        team_skills = discover_skills(ws.team_skills_dir(cfg.team_skills_path))
+        personal_skills = discover_skills(ws.personal_skills_dir)
+        skill_set = resolve_skills(team_skills, personal_skills)
+        targets = [build_target(name) for name in cfg.skill_targets]
+        report = install_all(skill_set, targets, project_root=project_root)
+        console.print(
+            f"[green]skills[/green] {len(skill_set.installed)} resolved → "
+            f"{len(cfg.skill_targets)} target(s) "
+            f"(written={len(report.written)}, unchanged={len(report.unchanged)}, "
+            f"removed={len(report.removed)})"
+        )
+        skill_conflicts = len(skill_set.conflicts)
+        for c in skill_set.conflicts:
+            err_console.print(
+                f"[red]skill conflict[/red] {c.name}: team@{c.team_version} locked, "
+                f"personal@{c.personal_version} ignored"
+            )
+
+    if result.conflicts or skill_conflicts:
         raise typer.Exit(code=3)
 
 

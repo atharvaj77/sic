@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 
 
@@ -53,7 +53,14 @@ class Workspace:
     def personal_file(self) -> Path:
         return self.root / "personal.yaml"
 
+    @property
+    def personal_skills_dir(self) -> Path:
+        return self.root / "personal-skills"
+
     def team_profile_path(self, relative: str) -> Path:
+        return self.team_dir / relative
+
+    def team_skills_dir(self, relative: str = "skills") -> Path:
         return self.team_dir / relative
 
     @classmethod
@@ -67,6 +74,8 @@ class Workspace:
 class Config:
     team_repo: str
     team_profile_path: str = "team.yaml"  # relative to the cloned repo
+    team_skills_path: str = "skills"  # relative to the cloned repo
+    skill_targets: list[str] = field(default_factory=list)
 
     def dump(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -75,6 +84,9 @@ class Config:
     @classmethod
     def load(cls, path: Path) -> "Config":
         data = json.loads(path.read_text())
+        # Tolerate older config files that pre-date the skill fields.
+        known = {f.name for f in fields(cls)}
+        data = {k: v for k, v in data.items() if k in known}
         return cls(**data)
 
 
