@@ -1,0 +1,37 @@
+# Alice's personal profile — additive, no conflicts with the team profile.
+# Stored under ~/.sic/ in real use; checked-in here only as a fixture.
+
+schema_version: 1
+profile:
+  scope: personal
+  owner: alice
+  updated_at: 2026-03-05
+
+entries:
+  - section: languages
+    key: preferred
+    value: [rust]
+    merge: append
+    priority: 30
+    rationale: "I write CLI tooling in Rust on the side."
+
+  - section: coding_style
+    key: python_docstrings
+    value: "Google-style docstrings on public functions."
+    merge: replace
+    priority: 40
+
+  - section: workflow
+    key: pr_checklist
+    value:
+      - "Self-review the diff in the PR UI before requesting reviewers"
+    merge: append
+    priority: 30
+
+  - section: domain_knowledge
+    key: glossary
+    value:
+      LTV: "Lifetime Value — average revenue per customer over their full lifecycle"
+    merge: map_merge
+    priority: 30
+    rationale: "I work on the LTV model — useful shorthand."

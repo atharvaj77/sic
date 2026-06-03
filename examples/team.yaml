@@ -1,0 +1,71 @@
+# Team memory profile — example fixture for sharing-is-caring.
+# Owned by the data platform team; PR-reviewed; rendered into CLAUDE.md.
+
+schema_version: 1
+profile:
+  scope: team
+  owner: data-platform-team
+  updated_at: 2026-03-01
+
+entries:
+  - section: identity
+    key: team_name
+    value: "Acme Data Platform"
+    merge: replace
+    priority: 80
+    rationale: "Used in commit message prefixes and PR templates."
+
+  - section: languages
+    key: preferred
+    value: [python, sql]
+    merge: append
+    priority: 60
+    rationale: "Members add their own niche languages; team baseline stays."
+
+  - section: tools
+    key: dataframe_library
+    value: polars
+    merge: replace
+    priority: 70
+    lock: true
+    rationale: "Standardized 2026-Q1. Do not override without RFC."
+
+  - section: coding_style
+    key: sql_formatting
+    value: "UPPERCASE keywords, trailing commas, 2-space indent"
+    merge: replace
+    priority: 50
+    rationale: "Agreed in 2026-02 style review."
+
+  - section: coding_style
+    key: python_typing
+    value: "type hints required on all public functions; use `from __future__ import annotations`"
+    merge: replace
+    priority: 50
+
+  - section: workflow
+    key: pr_checklist
+    value:
+      - "Run `make test` locally before pushing"
+      - "Add or update tests for any behavior change"
+      - "Update CHANGELOG.md under Unreleased"
+    merge: append
+    priority: 40
+
+  - section: do_not
+    key: forbidden_patterns
+    value:
+      - "Never commit secrets — use `make secrets-pull`"
+      - "No `pandas` in new code (use polars per tools.dataframe_library)"
+    merge: append
+    priority: 90
+    lock: true
+
+  - section: domain_knowledge
+    key: glossary
+    value:
+      ARR: "Annual Recurring Revenue (sum of active subscriptions × 12)"
+      DAU: "Daily Active Users (distinct user_id with >=1 event in UTC day)"
+      churn: "30-day rolling cancel rate over start-of-period active subs"
+    merge: map_merge
+    priority: 30

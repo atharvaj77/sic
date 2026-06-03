@@ -1,0 +1,36 @@
+# Bob's personal profile — deliberately seeds two conflicts with the team
+# profile so the merger / `sic conflicts` command have something real to chew on.
+#
+# Conflict 1 (resolvable by Tier 1 = personal override):
+#   coding_style.sql_formatting — Bob prefers lowercase keywords.
+#
+# Conflict 2 (NOT resolvable — team has lock=true):
+#   tools.dataframe_library — Bob wants pandas, but the team locked polars.
+#   Tier-3 (LLM-mediated or human-prompt) is required for this one.
+
+schema_version: 1
+profile:
+  scope: personal
+  owner: bob
+  updated_at: 2026-03-07
+
+entries:
+  - section: coding_style
+    key: sql_formatting
+    value: "lowercase keywords, leading commas, 4-space indent"
+    merge: replace
+    priority: 50
+    rationale: "Personal preference — easier on my eyes."
+
+  - section: tools
+    key: dataframe_library
+    value: pandas
+    merge: replace
+    priority: 50
+    rationale: "Most of my legacy notebooks are pandas; intentional conflict for testing."
+
+  - section: identity
+    key: editor
+    value: neovim
+    merge: replace
+    priority: 20

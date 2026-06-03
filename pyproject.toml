@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sharing-is-caring"
+version = "0.1.0"
+description = "Shared team memory profiles for Claude Code"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "ruamel.yaml>=0.18",
+    "typer>=0.12",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+llm = ["anthropic>=0.40"]
+
+[project.scripts]
+sic = "sic.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sic"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

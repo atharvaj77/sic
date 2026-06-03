@@ -1,0 +1,21 @@
+name: validate-team-profile
+
+# Drop this workflow into the **team profile repo** (not the sic source repo).
+# It validates every YAML profile on push/PR so a malformed entry can't
+# silently break every teammate's `sic sync`.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install sharing-is-caring
+      - run: sic validate --strict $(find . -name '*.yaml' -not -path './.git/*')

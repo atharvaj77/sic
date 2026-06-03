@@ -1,0 +1,12 @@
+{
+  "memories": [
+    {"content": "Prefers Polars over Pandas for new Python pipeline code."},
+    {"content": "Always use type hints on public functions in Python."},
+    {"content": "Never commit secrets — they go through Vault."},
+    {"content": "I work on the LTV churn model on the growth team."},
+    {"content": "Prefers 2-space indent in YAML files."},
+    {"content": "Uses neovim with the Astro distribution."},
+    {"content": "ARR stands for Annual Recurring Revenue (12x MRR)."},
+    {"content": "Likes hiking on weekends."}
+  ]
+}
