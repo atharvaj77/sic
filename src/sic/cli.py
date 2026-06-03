@@ -166,18 +166,8 @@ def sync(
         f"{len(result.conflicts)} conflict(s)"
     )
 
-    if render_target is not None:
-        ctx = RenderContext(
-            team_owner=team_profile.profile.owner,
-            personal_owner=personal_profile.profile.owner,
-            generated_at=None if no_timestamp else datetime.now(timezone.utc),
-        )
-        text = render_claude_md(result, ctx)
-        path = resolve_target_path(render_target, project_root)
-        write_claude_md(text, path)
-        console.print(f"[green]rendered[/green] {path}")
-
     skill_conflicts = 0
+    skill_set = None
     if skills and cfg.skill_targets:
         team_skills = discover_skills(ws.team_skills_dir(cfg.team_skills_path))
         personal_skills = discover_skills(ws.personal_skills_dir)
@@ -196,6 +186,17 @@ def sync(
                 f"[red]skill conflict[/red] {c.name}: team@{c.team_version} locked, "
                 f"personal@{c.personal_version} ignored"
             )
+
+    if render_target is not None:
+        ctx = RenderContext(
+            team_owner=team_profile.profile.owner,
+            personal_owner=personal_profile.profile.owner,
+            generated_at=None if no_timestamp else datetime.now(timezone.utc),
+        )
+        text = render_claude_md(result, ctx, skill_set=skill_set)
+        path = resolve_target_path(render_target, project_root)
+        write_claude_md(text, path)
+        console.print(f"[green]rendered[/green] {path}")
 
     if result.conflicts or skill_conflicts:
         raise typer.Exit(code=3)

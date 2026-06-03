@@ -55,6 +55,7 @@ sic import-chatgpt ~/Downloads/chatgpt-memories.json --as alice \
 | `sic conflicts TEAM PERSONAL` | Show unresolved conflicts as a table | 0 / 3 |
 | `sic diff A B` | Show entries that differ between two profiles | 0 |
 | `sic import-chatgpt EXPORT --as OWNER [--use-llm]` | Convert a ChatGPT memory export to a personal profile | 0 / 1 |
+| `sic skills list \| show \| validate \| new \| install \| diff` | Manage shared team skill bundles (see [Sharing skills](#sharing-skills)) | 0 / 1 / 3 |
 
 Exit code legend: `0` success · `1` hard error · `3` unresolved conflicts.
 
@@ -62,9 +63,12 @@ Exit code legend: `0` success · `1` hard error · `3` unresolved conflicts.
 
 ```
 ~/.sic/
-├── config.json         # team repo URL + path to team profile inside it
-├── team/               # git clone of the team profile repo
-└── personal.yaml       # your personal profile
+├── config.json          # team repo URL + path to team profile + skill_targets
+├── team/                # git clone of the team profile repo
+│   ├── team.yaml
+│   └── skills/          # team skill bundles (cdp-mcp/, sql-style/, …)
+├── personal.yaml        # your personal profile overlay
+└── personal-skills/     # your personal skill bundles
 ```
 
 ---
@@ -146,6 +150,111 @@ sic conflicts ~/.sic/team/team.yaml ~/.sic/personal.yaml
 
 ---
 
+## Sharing skills
+
+Profiles capture *preferences* — concise key-value facts about how your team
+likes to work. **Skills** capture *playbooks* — multi-paragraph instructions an
+agent should load on demand when it touches a specific tool or task (e.g.
+"driving the CDP MCP", "writing dbt models in our style", "calling the
+internal feature store").
+
+A skill is a directory inside the team repo's `skills/` folder:
+
+```
+skills/
+  cdp-mcp/
+    SKILL.md          # required — frontmatter + body
+    examples/         # optional supporting files
+```
+
+`SKILL.md` has YAML frontmatter the agent uses for routing:
+
+```yaml
+---
+name: cdp-mcp
+version: 0.3.0
+description: >
+  How to drive Acquia CDP MCP — campaign+audience+email is one POST+PUT,
+  body params are JSON strings, _EQUALS not _OR_EQUAL.
+applies_to: [cdp, acquia, campaignDefs]
+owner: data-platform
+tags: [mcp, acquia]
+lock: false            # team-only; if true, personal copies are rejected
+---
+# body — anything the agent should know
+```
+
+### Workflow
+
+```bash
+# 1. Enable skill installation in your local sic config.
+#    Edit ~/.sic/config.json and add: "skill_targets": ["claude"]
+#    (built-ins: claude, copilot, generic)
+
+# 2. Scaffold a personal skill on top of the team's.
+sic skills new my-helper
+
+# 3. Pull team skill updates AND install everything to the agent layout.
+sic sync                            # installs to all configured targets
+sic skills install --target claude  # one-shot, explicit target
+
+# 4. Inspect.
+sic skills list                # table with version, scope, lock flag
+sic skills show cdp-mcp        # print the rendered SKILL.md
+sic skills diff                # show team vs personal differences
+sic skills validate            # lint every workspace skill
+```
+
+### Install layouts
+
+`sic skills install` (also invoked by `sic sync`) writes to whichever
+targets are listed in `config.skill_targets`:
+
+| Target | Writes to | Shape |
+| --- | --- | --- |
+| `claude` | `~/.claude/skills/<name>/SKILL.md` (+ assets) | one directory per skill |
+| `copilot` | `<project>/.github/prompts/<name>.skill.md` | single file per skill |
+| `generic` | `<project>/.ai/skills/<name>/` (+ assets) | one directory per skill |
+
+Each target maintains its own `.sic-manifest.json` tracking the files it
+owns, so re-installing after removing a skill **only** deletes that
+skill's files — hand-written `SKILL.md` files alongside are never touched.
+File writes are byte-diff idempotent.
+
+### Conflict resolution (same three tiers as profiles)
+
+```mermaid
+flowchart TD
+  A[Team skill vs Personal skill, matched by `name`] --> B{Both sides?}
+  B -- only one --> P[Tier 1: pass through]
+  B -- both --> C{Identical content?}
+  C -- yes --> P2[Tier 1: keep team copy]
+  C -- no --> D{Team has `lock: true`?}
+  D -- yes --> X[Tier 3: team wins,<br/>personal copy rejected,<br/>conflict surfaced in CLAUDE.md]
+  D -- no --> M[Tier 2: personal wins,<br/>recorded as override]
+```
+
+Tier-3 skill conflicts make `sic sync` and `sic skills install` exit
+`3` (same as profile conflicts) and are listed under "⚠️ Unresolved
+skill conflicts" in the rendered `CLAUDE.md`.
+
+### What the agent sees in `CLAUDE.md`
+
+When skills are installed, `sic render` / `sic sync --render` appends a
+table so the agent (and your reviewers) know which bundles exist:
+
+```markdown
+## Available skills
+
+| Name | Version | Scope | Description |
+| --- | --- | --- | --- |
+| `cdp-mcp` | 0.3.0 | team | How to drive Acquia CDP MCP — … |
+| `sql-style` 🔒 | 1.0.0 | team | Team SQL formatting conventions … |
+| `my-helper` | 0.1.0 | personal | Personal helper script for … |
+```
+
+---
+
 ## Setting up a team profile repo
 
 A team profile repo is just a git repo containing a `team.yaml` (path is
@@ -197,7 +306,7 @@ same hash.
 
 ```bash
 pip install -e '.[dev]'   # add ',llm' for the optional Anthropic SDK
-pytest -q                 # 104 tests, ~94% coverage
+pytest -q                 # 181 tests across profiles + skills
 ```
 
 Project layout:
@@ -207,14 +316,15 @@ src/sic/
   schema.py     # pydantic v2 models, JSON Schema export
   loader.py     # ruamel.yaml round-trip I/O
   merger.py     # tiered merge + conflict surfacing
-  renderer.py   # CLAUDE.md emitter
-  workspace.py  # ~/.sic/ + git operations
+  renderer.py   # CLAUDE.md emitter (skill-aware)
+  workspace.py  # ~/.sic/ + git operations + config
   importer.py   # ChatGPT export → personal profile
+  skills/       # SKILL.md schema, loader, resolver, installer, CLI subgroup
   cli.py        # typer entrypoint
 tests/          # unit + golden + integration
-examples/       # team.yaml + personal fixtures + chatgpt export
+examples/       # team.yaml + personal fixtures + chatgpt export + skills/
 templates/      # team repo CI scaffold
-PLAN.md         # full 7-phase design doc
+PLAN.md         # full design doc
 ```
 
 ---

@@ -24,11 +24,14 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import __version__
 from .merger import MergeResult
 from .schema import Entry, Section
+
+if TYPE_CHECKING:  # avoid runtime cycle / keep skills optional
+    from .skills.resolver import SkillSet
 
 # Order in which sections appear in the rendered output. Stable for diff hygiene.
 _SECTION_ORDER: tuple[Section, ...] = (
@@ -120,8 +123,18 @@ def _banner(ctx: RenderContext, merge_result: MergeResult) -> str:
     return "\n".join(lines)
 
 
-def render_claude_md(merge_result: MergeResult, ctx: RenderContext) -> str:
-    """Render a resolved merge result as a CLAUDE.md string."""
+def render_claude_md(
+    merge_result: MergeResult,
+    ctx: RenderContext,
+    skill_set: "SkillSet | None" = None,
+) -> str:
+    """Render a resolved merge result as a CLAUDE.md string.
+
+    If ``skill_set`` is provided and non-empty, an "Available skills" table is
+    appended so the agent knows what skill bundles exist alongside the
+    profile. Pass ``None`` (the default) to keep output byte-stable for
+    callers that don't manage skills.
+    """
     by_section: dict[Section, list[Entry]] = {s: [] for s in _SECTION_ORDER}
     for e in merge_result.resolved:
         by_section[e.section].append(e)
@@ -147,6 +160,25 @@ def render_claude_md(merge_result: MergeResult, ctx: RenderContext) -> str:
             parts.append(_render_entry(entry))
             parts.append("")
 
+    if skill_set is not None and skill_set.installed:
+        parts.append("## Available skills")
+        parts.append("")
+        parts.append(
+            "These skill bundles are installed locally and available to the "
+            "agent. Run `sic skills show NAME` to view one."
+        )
+        parts.append("")
+        parts.append("| Name | Version | Scope | Description |")
+        parts.append("| --- | --- | --- | --- |")
+        for inst in skill_set.installed:
+            m = inst.skill.manifest
+            lock = " 🔒" if m.lock else ""
+            desc = " ".join(m.description.split())  # collapse whitespace
+            parts.append(
+                f"| `{m.name}`{lock} | {m.version} | {inst.scope.value} | {desc} |"
+            )
+        parts.append("")
+
     if merge_result.conflicts:
         parts.append("## ⚠️ Unresolved conflicts")
         parts.append("")
@@ -159,6 +191,16 @@ def render_claude_md(merge_result: MergeResult, ctx: RenderContext) -> str:
             parts.append(
                 f"- `{c.identifier}` — {c.reason.value} "
                 f"(team: `{c.team_entry.value!r}` vs personal: `{c.personal_entry.value!r}`)"
+            )
+        parts.append("")
+
+    if skill_set is not None and skill_set.conflicts:
+        parts.append("## ⚠️ Unresolved skill conflicts")
+        parts.append("")
+        for c in skill_set.conflicts:
+            parts.append(
+                f"- `{c.name}` — team@{c.team_version} is locked; "
+                f"personal@{c.personal_version} was ignored"
             )
         parts.append("")
 
